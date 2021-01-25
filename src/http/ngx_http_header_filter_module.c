@@ -152,7 +152,7 @@ ngx_http_header_out_t  ngx_http_headers_out[] = {
     { ngx_null_string, 0 }
 };
 
-
+/* 真正的发送HTTP响应头部 */
 static ngx_int_t
 ngx_http_header_filter(ngx_http_request_t *r)
 {
@@ -168,17 +168,23 @@ ngx_http_header_filter(ngx_http_request_t *r)
     ngx_http_core_loc_conf_t  *clcf;
     ngx_http_core_srv_conf_t  *cscf;
     u_char                     addr[NGX_SOCKADDR_STRLEN];
-
+    /*
+     * 检查当前请求结构的header_sent标志位，若该标志位为1，
+     * 表示已经发送HTTP请求响应，则无需再发送，此时返回NGX_OK；
+     */
     if (r->header_sent) {
         return NGX_OK;
     }
-
+    /* 若之前未发送HTTP请求响应，则现在准备发送，并设置header_sent标志位 */
     r->header_sent = 1;
-
+    /* 当前请求不是原始请求，则返回NGX_OK */
     if (r != r->main) {
         return NGX_OK;
     }
-
+    /*
+     * 若HTTP版本为小于1.0 则直接返回NGX_OK；
+     * 因为这些版本不支持请求头部，所有就没有响应头部；
+     */
     if (r->http_version < NGX_HTTP_VERSION_10) {
         return NGX_OK;
     }
@@ -196,7 +202,7 @@ ngx_http_header_filter(ngx_http_request_t *r)
             r->headers_out.last_modified = NULL;
         }
     }
-
+    /* 以下是根据HTTP响应报文的状态行、响应头部字符串序列化为所需的字节数len */
     len = sizeof("HTTP/1.x ") - 1 + sizeof(CRLF) - 1
           /* the end of the header */
           + sizeof(CRLF) - 1;
@@ -430,12 +436,12 @@ ngx_http_header_filter(ngx_http_request_t *r)
         len += header[i].key.len + sizeof(": ") - 1 + header[i].value.len
                + sizeof(CRLF) - 1;
     }
-
+    /* 分配用于存储响应头部字符流缓冲区 */
     b = ngx_create_temp_buf(r->pool, len);
     if (b == NULL) {
         return NGX_ERROR;
     }
-
+    /* 将响应报文的状态行、响应头部按照HTTP规范序列化地复制到刚分配的缓冲区b中 */
     /* "HTTP/1.x " */
     b->last = ngx_cpymem(b->last, "HTTP/1.1 ", sizeof("HTTP/1.x ") - 1);
 
@@ -613,10 +619,19 @@ ngx_http_header_filter(ngx_http_request_t *r)
     if (r->header_only) {
         b->last_buf = 1;
     }
-
+    /*
+     * 将待发送的响应头部挂载到out链表缓冲区中，
+     * 挂载的目的是：当响应头部不能一次性发送完成时，
+     * ngx_http_header_filter方法返回NGX_AGAIN，表示发送的响应头部不完整，
+     * 则把剩余的响应头部保存在out链表中，以便调用ngx_http_finalize_request时，
+     * 再次调用HTTP框架将out链表中剩余的响应头部字符流继续发送；
+     */
     out.buf = b;
     out.next = NULL;
-
+    /*
+     * 调用方法ngx_http_write_filter将响应头部字符流发送出去；
+     * 所有实际发送响应头部数据的由ngx_http_write_filter方法实现；
+     */
     return ngx_http_write_filter(r, &out);
 }
 

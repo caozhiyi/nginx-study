@@ -3267,6 +3267,7 @@ ngx_http_upstream_send_response(ngx_http_request_t *r, ngx_http_upstream_t *u)
     p->limit_rate = u->conf->limit_rate;
     p->start_sec = ngx_time();
 
+    // 是否启用文件缓存
     p->cacheable = u->cacheable || u->store;
 
     p->temp_file = ngx_pcalloc(r->pool, sizeof(ngx_temp_file_t));

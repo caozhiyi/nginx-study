@@ -1170,7 +1170,7 @@ ngx_free_connection(ngx_connection_t *c)
     }
 }
 
-
+/* 关闭套接字连接 */
 void
 ngx_close_connection(ngx_connection_t *c)
 {
@@ -1182,7 +1182,7 @@ ngx_close_connection(ngx_connection_t *c)
         ngx_log_error(NGX_LOG_ALERT, c->log, 0, "connection already closed");
         return;
     }
-
+    /* 将当前连接的读、写事件从定时器机制中移除 */
     if (c->read->timer_set) {
         ngx_del_timer(c->read);
     }

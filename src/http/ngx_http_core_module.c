@@ -808,15 +808,16 @@ ngx_module_t  ngx_http_core_module = {
 
 ngx_str_t  ngx_http_core_get_method = { 3, (u_char *) "GET" };
 
-
+// 执行http 14个阶段的请求过程
 void
 ngx_http_handler(ngx_http_request_t *r)
 {
     ngx_http_core_main_conf_t  *cmcf;
 
     r->connection->log->action = NULL;
-
+    /* 若当前请求的internal标志位为0，表示不需要重定向 */
     if (!r->internal) {
+        /* 下面语句是决定是否使用keepalive机制 */
         switch (r->headers_in.connection_type) {
         case 0:
             r->keepalive = (r->http_version > NGX_HTTP_VERSION_10);
@@ -830,13 +831,28 @@ ngx_http_handler(ngx_http_request_t *r)
             r->keepalive = 1;
             break;
         }
-
+        /* 设置延迟关闭标志位 */
         r->lingering_close = (r->headers_in.content_length_n > 0
                               || r->headers_in.chunked);
+        /*
+         * phase_handler序号设置为0，表示执行ngx_http_phase_engine_t结构体成员
+         * ngx_http_phase_handler_t *handlers数组中的第一个回调方法；
+         */
         r->phase_handler = 0;
 
     } else {
+        /* 若当前请求的internal标志位为1，表示需要做内部跳转 */
+        /* 获取ngx_http_core_module模块的main级别的配置项结构 */
         cmcf = ngx_http_get_module_main_conf(r, ngx_http_core_module);
+        /*
+         * 将phase_handler序号设为server_rewriter_index，
+         * 该phase_handler序号是作为ngx_http_phase_engine_t结构中成员
+         * ngx_http_phase_handler_t *handlers回调方法数组的序号，
+         * 即表示回调方法在该数组中所处的位置；
+         *
+         * server_rewrite_index则是handlers数组中NGX_HTTP_SERVER_REWRITE_PHASE阶段的
+         * 第一个ngx_http_phase_handler_t回调的方法；
+         */
         r->phase_handler = cmcf->phase_engine.server_rewrite_index;
     }
 
@@ -846,8 +862,12 @@ ngx_http_handler(ngx_http_request_t *r)
     r->gzip_ok = 0;
     r->gzip_vary = 0;
 #endif
-
+     /* 设置当前请求写事件的回调方法 */
     r->write_event_handler = ngx_http_core_run_phases;
+    /*
+     * 执行该回调方法，将调用各个HTTP模块共同处理当前请求，
+     * 各个HTTP模块按照11个HTTP阶段进行处理；
+     */
     ngx_http_core_run_phases(r);
 }
 
@@ -858,15 +878,15 @@ ngx_http_core_run_phases(ngx_http_request_t *r)
     ngx_int_t                   rc;
     ngx_http_phase_handler_t   *ph;
     ngx_http_core_main_conf_t  *cmcf;
-
+    /* 获取ngx_http_core_module模块的main级别的配置项结构体 */
     cmcf = ngx_http_get_module_main_conf(r, ngx_http_core_module);
-
+    /* 获取各个HTTP模块处理请求的回调方法数组 */
     ph = cmcf->phase_engine.handlers;
-
+     /* 若实现了checker方法 */
     while (ph[r->phase_handler].checker) {
-
+        /* 执行phase_handler序号在数组中指定的checker方法 */
         rc = ph[r->phase_handler].checker(r, &ph[r->phase_handler]);
-
+         /* 成功执行checker方法，则退出，否则继续执行下一个HTTP模块的checker方法 */
         if (rc == NGX_OK) {
             return;
         }
@@ -1809,7 +1829,7 @@ ngx_http_send_response(ngx_http_request_t *r, ngx_uint_t status,
     return ngx_http_output_filter(r, &out);
 }
 
-
+/* 发送 HTTP 响应头部 */
 ngx_int_t
 ngx_http_send_header(ngx_http_request_t *r)
 {
@@ -1831,7 +1851,7 @@ ngx_http_send_header(ngx_http_request_t *r)
     return ngx_http_top_header_filter(r);
 }
 
-
+/* 发送HTTP 响应包体 */
 ngx_int_t
 ngx_http_output_filter(ngx_http_request_t *r, ngx_chain_t *in)
 {
