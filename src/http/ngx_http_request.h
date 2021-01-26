@@ -334,7 +334,7 @@ typedef struct {
     ngx_http_regex_t                 *ssl_servername_regex;
 #endif
 #endif
-
+    // 当请求头过大，导致分配large buffer时，将buffer挂在此处管理
     ngx_chain_t                      *busy;
     ngx_int_t                         nbusy;
 

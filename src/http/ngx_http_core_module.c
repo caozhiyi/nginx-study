@@ -970,6 +970,7 @@ ngx_http_core_find_config_phase(ngx_http_request_t *r,
     r->content_handler = NULL;
     r->uri_changed = 0;
 
+    // 根据loc配置request属性
     rc = ngx_http_core_find_location(r);
 
     if (rc == NGX_ERROR) {
@@ -1264,6 +1265,7 @@ ngx_http_core_content_phase(ngx_http_request_t *r,
 
     if (r->content_handler) {
         r->write_event_handler = ngx_http_request_empty_handler;
+        // 如果是upstream，这里调用的是ngx_http_proxy_handler
         ngx_http_finalize_request(r, r->content_handler(r));
         return NGX_OK;
     }
@@ -1306,7 +1308,7 @@ ngx_http_core_content_phase(ngx_http_request_t *r,
     return NGX_OK;
 }
 
-
+// 根据loc配置，更新request属性
 void
 ngx_http_update_location_config(ngx_http_request_t *r)
 {

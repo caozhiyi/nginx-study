@@ -508,7 +508,7 @@ ngx_http_upstream_create(ngx_http_request_t *r)
     return NGX_OK;
 }
 
-// 便可启动upstream 机制
+// 启动upstream 机制
 void
 ngx_http_upstream_init(ngx_http_request_t *r)
 {
@@ -4095,7 +4095,7 @@ ngx_http_upstream_process_downstream(ngx_http_request_t *r)
     ngx_http_upstream_process_request(r, u);
 }
 
-
+// 上游网速优先，处理接收上游包体
 static void
 ngx_http_upstream_process_upstream(ngx_http_request_t *r,
     ngx_http_upstream_t *u)
@@ -4175,7 +4175,7 @@ ngx_http_upstream_process_request(ngx_http_request_t *r,
 #endif
 
     if (u->peer.connection) {
-
+        // 开启文件缓存
         if (u->store) {
 
             if (p->upstream_eof || p->upstream_done) {
